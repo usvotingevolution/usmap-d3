@@ -12,7 +12,7 @@ let data;
 // Load in my states data!
 d3.csv("stateslived.csv").then(function (dataset) {
   data = dataset;
-  updateChart("1870");
+  onCategoryChanged();
 });
 
 function updateChart(yearFilter) {
