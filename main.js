@@ -1,9 +1,5 @@
 // Global function called when select element is changed
 function onCategoryChanged() {
-  // select the input with type range and id range
-  const selectRange = d3.select("#range").value;
-  console.log(selectRange);
-
   const selectElement = d3.select("#year").node();
   const yearFilter = selectElement.value;
   console.log(yearFilter);
