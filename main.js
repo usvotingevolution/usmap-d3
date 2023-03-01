@@ -1,76 +1,42 @@
 // Global function called when select element is changed
 function onCategoryChanged() {
   var select = d3.select("#year").node();
-  var category = select.options[select.selectedIndex].value;
+  var category = select.value;
   console.log(category);
   // Update chart with the selected category of cereal
   updateChart(category);
 }
 
 var data;
-
 // Load in my states data!
-d3.csv("stateslived.csv", function (dataset) {
+d3.csv("stateslived.csv").then(function (dataset) {
   data = dataset;
-  // // Add filter button
-  // d3.select("#filter")
-  //   .append("p")
-  //   .append("button")
-  //   .style("border", "1px solid black")
-  //   .text("Filter Data")
-  //   .on("click", function () {
-  //     // Add code here
-  //     cutoff = +d3.select("#year").node().value;
-  //     onCategoryChanged();
-  //   });
-
-  // console.log(d3.select("#year").node().value);
-
   updateChart("1870");
 });
 
 function updateChart(year_filter) {
-  //Get the value from the select element
-  // var yearSelect = d3.select("#year").property("value");
-  // if (yearSelect == "1765") {
-  //   console.log("1765");
-  // } else if (yearSelect == "1870") {
-  //   console.log("1870");
-  // }
-
   //Width and height of map
   var width = 960;
   var height = 500;
 
   // D3 Projection
-  var projection = d3.geo
-    .albersUsa()
+  var projection = d3
+    .geoAlbersUsa()
     .translate([width / 2, height / 2]) // translate to center of screen
     .scale([1000]); // scale things down so see entire US
 
   // Define path generator
-  var path = d3.geo
-    .path() // path generator that will convert GeoJSON to SVG paths
+  var path = d3
+    .geoPath() // path generator that will convert GeoJSON to SVG paths
     .projection(projection); // tell path generator to use albersUsa projection
 
   // Define linear scale for output
-  var color = d3.scale.linear().range(["rgb(213,222,217)", "rgb(69,173,168)"]);
+  var color = d3.scaleLinear().range(["rgb(213,222,217)", "rgb(0,109,44)"]);
 
   var legendText = ["States joined", "Unclaimed"];
 
-  //Create SVG element and append map to the SVG
-  var svg = d3
-    .select("body")
-    .append("svg")
-    .attr("width", width)
-    .attr("height", height);
-
-  // Append Div for tooltip to SVG
-  var div = d3
-    .select("body")
-    .append("div")
-    .attr("class", "tooltip")
-    .style("opacity", 0);
+  // Select the existing SVG element instead of creating a new one
+  var svg = d3.select("#map");
 
   color.domain([0, 1]); // setting the range of the input data
 
@@ -91,17 +57,32 @@ function updateChart(year_filter) {
         if (dataState == jsonState) {
           // Copy the data value into the JSON
           json.features[j].properties.year_admitted = dataValue;
-
           // Stop looking through the JSON
           break;
         }
       }
     }
 
-    // Bind the data to the SVG and create one path per GeoJSON feature
-    svg
-      .selectAll("path")
-      .data(json.features)
+    // Bind the data to the existing SVG and create one path per GeoJSON feature
+    var paths = svg.selectAll("path").data(json.features);
+
+    // Update existing paths
+    paths.style("fill", function (d) {
+      // Get data value
+      // 0 if year_admitted > year_filter, otherwise 1
+      var value = d.properties.year_admitted > year_filter ? 0 : 1;
+
+      if (value) {
+        // If value exists…
+        return color(value);
+      } else {
+        // If value is undefined…
+        return "rgb(213,222,217)";
+      }
+    });
+
+    // Add new paths
+    paths
       .enter()
       .append("path")
       .attr("d", path)
@@ -109,56 +90,20 @@ function updateChart(year_filter) {
       .style("stroke-width", "1")
       .style("fill", function (d) {
         // Get data value
-        // 0 if year_admitted>1870 otherwise 1
+        // 0 if year_admitted > year_filter, otherwise 1
         var value = d.properties.year_admitted > year_filter ? 0 : 1;
 
         if (value) {
-          //If value exists…
+          // If value exists…
           return color(value);
         } else {
-          //If value is undefined…
+          // If value is undefined…
           return "rgb(213,222,217)";
         }
       });
 
-    // // Map the cities I have lived in!
-    // d3.csv("cities-lived.csv", function(data) {
-
-    // svg.selectAll("circle")
-    // 	.data(data)
-    // 	.enter()
-    // 	.append("circle")
-    // 	.attr("cx", function(d) {
-    // 		return projection([d.lon, d.lat])[0];
-    // 	})
-    // 	.attr("cy", function(d) {
-    // 		return projection([d.lon, d.lat])[1];
-    // 	})
-    // 	.attr("r", function(d) {
-    // 		return Math.sqrt(d.years) * 4;
-    // 	})
-    // 		.style("fill", "rgb(217,91,67)")
-    // 		.style("opacity", 0.85)
-
-    // 	// Modification of custom tooltip code provided by Malcolm Maclean, "D3 Tips and Tricks"
-    // 	// http://www.d3noob.org/2013/01/adding-tooltips-to-d3js-graph.html
-    // 	.on("mouseover", function(d) {
-    //     	div.transition()
-    //       	   .duration(200)
-    //            .style("opacity", .9);
-    //            div.text(d.place)
-    //            .style("left", (d3.event.pageX) + "px")
-    //            .style("top", (d3.event.pageY - 28) + "px");
-    // 	})
-
-    //     // fade out tooltip on mouse out
-    //     .on("mouseout", function(d) {
-    //         div.transition()
-    //            .duration(500)
-    //            .style("opacity", 0);
-    //     });
-    // });
-
+    // Remove old paths
+    paths.exit().remove();
     // Modified Legend Code from Mike Bostock: http://bl.ocks.org/mbostock/3888852
     var legend = d3
       .select("body")
@@ -167,7 +112,7 @@ function updateChart(year_filter) {
       .attr("width", 140)
       .attr("height", 200)
       .selectAll("g")
-      .data(color.domain().slice().reverse())
+      .data(color.range().reverse())
       .enter()
       .append("g")
       .attr("transform", function (d, i) {
@@ -178,16 +123,21 @@ function updateChart(year_filter) {
       .append("rect")
       .attr("width", 18)
       .attr("height", 18)
-      .style("fill", color);
+      .style("fill", function (d) {
+        return d;
+      });
 
     legend
       .append("text")
-      .data(legendText)
       .attr("x", 24)
       .attr("y", 9)
       .attr("dy", ".35em")
-      .text(function (d) {
-        return d;
+      .text(function (d, i) {
+        if (i == 0) {
+          return "States joined";
+        } else {
+          return "Unclaimed";
+        }
       });
   });
 }
